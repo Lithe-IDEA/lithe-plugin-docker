@@ -180,7 +180,7 @@ function App() {
                 </> : 'tags' in item ? <button disabled={!!modal} onClick={() => setModal({ type: 'run', image: item.tags[0] ?? item.id })}><Icon name="start" size={14}/>{t('run')}</button> : null}
                 <span class="spacer"/>{(!('builtin' in item) || !item.builtin) && <button class="danger icon-button" aria-label={t('remove')} title={t('remove')} disabled={!!modal} onClick={() => action('remove')}><Icon name="remove" size={14}/></button>}
               </div><button class="icon-button" title={t('close')} aria-label={t('close')} onClick={() => setSelected(undefined)}><Icon name="close"/></button>
-              </div>{visible && <ResourceDetails key={`${section}:${resourceKey(item)}:${connectionRevision}`} item={item} section={section} revision={revision} sampleInterval={sampleInterval} onSampleInterval={setSampleInterval}/>}
+              </div><ResourceDetails key={`${section}:${resourceKey(item)}:${connectionRevision}`} item={item} section={section} revision={revision} sampleInterval={sampleInterval} onSampleInterval={setSampleInterval} active={visible}/>
             </>
           </section>}</div></>}
     </main>

@@ -10,6 +10,7 @@ mod files;
 mod http;
 mod logos;
 mod service;
+mod terminal;
 mod time;
 
 use lithe_plugin_sdk::Backend;

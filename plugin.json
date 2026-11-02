@@ -18,7 +18,8 @@
     "backend.launch",
     "ui.contribute",
     "ui.web",
-    "browser.open"
+    "browser.open",
+    "terminal.create"
   ],
   "activationEvents": [
     "onView:io.github.lithe-idea.docker.explorer"
