@@ -1,0 +1,26 @@
+[package]
+name = "lithe-docker-backend"
+description = "The plugin backend of the Lithe Docker plugin."
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[[bin]]
+name = "lithe-docker-backend"
+path = "src/main.rs"
+
+[dependencies]
+base64 = "0.22"
+# The official SDK at its release tag; Cargo.lock records the commit and
+# `cargo build --locked` refuses anything else.
+lithe-plugin-sdk = { git = "https://github.com/Lithe-IDEA/lithe-plugin-docs", tag = "sdk-rust-v0.1.0" }
+reqwest = { version = "0.12.28", default-features = false, features = ["blocking", "rustls-tls"] }
+serde_json = "1"
+tar = "0.4"
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

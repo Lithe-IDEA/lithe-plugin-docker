@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 2,
+  "id": "io.github.lithe-idea.docker",
+  "displayName": "Docker",
+  "version": "0.1.0",
+  "pluginAPIVersion": 3,
+  "requires": {
+    "backend": 2,
+    "serverProcess": 1,
+    "ui": 2
+  },
+  "vendor": {
+    "id": "io.github.lithe-idea",
+    "displayName": "Lithe Community",
+    "signatureRequirement": "none"
+  },
+  "permissions": [
+    "backend.launch",
+    "ui.contribute",
+    "ui.web",
+    "browser.open"
+  ],
+  "activationEvents": [
+    "onView:io.github.lithe-idea.docker.explorer"
+  ],
+  "languages": [],
+  "ui": {
+    "toolWindows": [
+      {
+        "id": "io.github.lithe-idea.docker.explorer",
+        "title": "Docker",
+        "placement": "bottom",
+        "icon": {
+          "path": "icons/docker.svg",
+          "mode": "original"
+        },
+        "web": {
+          "entry": "ui/index.html"
+        }
+      }
+    ]
+  },
+  "backend": {
+    "launch": {
+      "kind": "packaged",
+      "path": "bin/lithe-docker-backend"
+    },
+    "arguments": [
+      "--state",
+      "${stateDir}"
+    ]
+  }
+}

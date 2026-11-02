@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/homarr-labs/dashboard-icons",
+  "revision": "83f32e08257b66fbd971ac8d7645f5b38d52e85d",
+  "license": "Apache-2.0",
+  "files": {
+    "elasticsearch": "0c18118afe8be15996dab82206310810c63277fabc9524cfb561f99b38930485",
+    "kibana": "5103b067e60d29e02938d391c6c429d37ab5bfefd4beef9fb2965623066d7558",
+    "minio": "775c27a9dcbee9f2bd12409a78376c2600612e9c3bea5822ef51e82c8b363c27",
+    "open-webui": "54717f2b0d403a6a559c87622d23dfd3cff3538e910ea3dbd8ffbf015aa3ff89",
+    "postgresql": "15392b515335ffd08a5a58cb9ed697772b4cf17f4a6af216900f2c774a951da2"
+  }
+}

@@ -1,0 +1,2 @@
+# Preserve vendored SVG bytes and CRLF for pinned upstream hashes.
+icons/brands/*.svg -text whitespace=cr-at-eol
