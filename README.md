@@ -12,7 +12,7 @@
 在 Lithe 的「设置 → 插件 → 从磁盘安装」中选择构建产物：
 
 ```text
-dist/docker-0.1.0-darwin.zip
+dist/docker-0.1.1-darwin.zip
 ```
 
 也可以选择解压后的 `dist/io.github.lithe-idea.docker/` 目录。
