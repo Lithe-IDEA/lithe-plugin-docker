@@ -140,7 +140,7 @@ docker pull alpine:3.21
 node scripts/e2e.mjs
 ```
 
-CI 的打包与真实 Docker 集成车道使用 `macos-15-intel`，与 Colima 上游的 macOS
+CI 与发布流程的打包和真实 Docker 集成车道使用 `macos-15-intel`，与 Colima 上游的 macOS
 集成车道一致，避免托管 ARM Mac 无法启动嵌套 VZ 虚拟机的问题；仍构建和校验
 arm64 / x86_64 两个 universal slice。引擎启动限时 10 分钟，失败时输出 Lima 启动日志。
 
