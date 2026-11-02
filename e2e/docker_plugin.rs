@@ -25,7 +25,7 @@ fn packaged_backend_manages_a_real_container_without_writing_the_package() {
     let mut store = BTreeMap::new();
     let mut host = Host::start(plugin_id, &package, &plan, &state);
     let functions = host.functions();
-    for required in ["images.logo", "browser.open", "files.list", "files.uploadBegin", "files.uploadChunk", "files.uploadCommit", "files.uploadAbort", "files.download"] {
+    for required in ["images.logo", "browser.open", "containers.terminal", "containers.terminalDispose", "files.list", "files.uploadBegin", "files.uploadChunk", "files.uploadCommit", "files.uploadAbort", "files.download"] {
         assert!(functions.iter().any(|function| function == required), "missing {required}");
     }
     // Verify real Core permission/capability routing without launching a
@@ -59,6 +59,22 @@ fn packaged_backend_manages_a_real_container_without_writing_the_package() {
         }
     }
     let guard = Cleanup { host: &mut host, store: &mut store, id: id.clone() };
+    // This Core fixture has no native window/PTY service. Validate the real
+    // backend's API-24 request and return that actual limitation, rather than
+    // inventing a successful terminal. Native interaction is host acceptance.
+    let terminal = guard.host.call(guard.store, "containers.terminal", json!({
+        "id": id, "shell": "/bin/sh", "title": "Docker · e2e"
+    }));
+    assert!(terminal["error"].to_string().contains("plugin.host.unavailable"), "{terminal}");
+    assert_eq!(guard.host.terminal_requests, 1);
+    let launch = &guard.host.events.iter().find(|event| event["method"] == "lithe/host/terminal/create").unwrap()["result"]["params"];
+    assert_eq!(launch["arguments"][1], format!("unix://{}", socket.as_str().unwrap()));
+    assert_eq!(launch["arguments"][5], id);
+    let invalid_shell = guard.host.call(guard.store, "containers.terminal", json!({
+        "id": id, "shell": "sh -c echo unsafe", "title": "Docker · e2e"
+    }));
+    assert!(invalid_shell["error"].to_string().contains("docker.invalidParams"), "{invalid_shell}");
+    assert_eq!(guard.host.terminal_requests, 1, "invalid shells must not reach the host");
     let inspected = guard.host.value(guard.store, "objects.inspect", json!({ "kind": "container", "id": id }));
     assert_eq!(inspected["State"]["Running"], true);
     let logs = guard.host.value(guard.store, "containers.logs", json!({ "id": id, "tail": 100 }));
@@ -90,6 +106,11 @@ fn packaged_backend_manages_a_real_container_without_writing_the_package() {
     for action in ["pause", "unpause", "restart", "stop", "start", "stop"] {
         guard.host.value(guard.store, "containers.action", json!({ "id": id, "action": action }));
     }
+    let stopped_terminal = guard.host.call(guard.store, "containers.terminal", json!({
+        "id": id, "shell": "/bin/sh", "title": "Docker · e2e"
+    }));
+    assert!(stopped_terminal["error"].to_string().contains("docker.terminalStopped"), "{stopped_terminal}");
+    assert_eq!(guard.host.terminal_requests, 1, "stopped containers must not launch a terminal");
     drop(guard);
     host.stop();
     drop(host);
@@ -174,6 +195,7 @@ struct Host {
     events: Vec<Value>,
     answered: BTreeSet<String>,
     operations: usize,
+    terminal_requests: usize,
 }
 
 impl Host {
@@ -203,6 +225,7 @@ impl Host {
             events: Vec::new(),
             answered: BTreeSet::new(),
             operations: 0,
+            terminal_requests: 0,
         };
         host.await_event("the backend to become ready", |event| {
             event["type"] == "stateChanged" && event["state"] == "ready"
@@ -270,6 +293,27 @@ impl Host {
             for request in pending {
                 let id = request["result"]["hostRequestID"].clone();
                 let params = &request["result"]["params"];
+                if request["method"] == "lithe/host/terminal/create" {
+                    self.terminal_requests += 1;
+                    assert_eq!(params["context"], json!({ "contextID": "docker-e2e", "generation": 1 }));
+                    assert_eq!(params["executable"], "docker");
+                    let arguments = params["arguments"].as_array().expect("argv");
+                    assert_eq!(arguments.len(), 7);
+                    assert_eq!(arguments[0], "--host");
+                    assert!(arguments[1].as_str().unwrap().starts_with("unix:///"));
+                    assert_eq!(&arguments[2..5], &[json!("exec"), json!("--interactive"), json!("--tty")]);
+                    assert_eq!(arguments[5].as_str().unwrap().len(), 64);
+                    assert_eq!(arguments[6], "/bin/sh");
+                    assert_eq!(params["title"], "Docker · e2e");
+                    assert_eq!(params["retainedContextBytes"], 16384);
+                    assert_eq!(params["environment"]["DOCKER_CONTEXT"], Value::Null);
+                    core("lsp.hostResponse", json!({
+                        "sessionId": self.session, "hostRequestID": id,
+                        "error": { "code": "plugin.host.unavailable", "message": "The Core-only fixture has no native terminal window." }
+                    }));
+                    self.answered.insert(id.to_string());
+                    continue;
+                }
                 let key = params["key"].as_str().unwrap_or_default().to_string();
                 let result = match request["method"].as_str() {
                     Some("lithe/host/browser/openExternal") => {

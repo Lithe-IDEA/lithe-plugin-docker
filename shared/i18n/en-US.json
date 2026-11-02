@@ -200,5 +200,18 @@
   "replace": "Replace",
   "sampleInterval": "Sample interval",
   "seconds": "{count} s",
-  "statsStopped": "Start this container to view live statistics."
+  "statsStopped": "Start this container to view live statistics.",
+  "openTerminal": "Open terminal",
+  "containerShell": "Shell",
+  "containerTerminalTitle": "Docker · {name}",
+  "terminalHelp": "Open Lithe's native terminal on this engine. Show the existing session, or reopen a closed session with up to 16 KiB of display history. The Docker CLI must be on the terminal's PATH and the selected shell must exist in the container.",
+  "disposeTerminal": "Close and forget this container shell's terminal and history",
+  "docker.terminalUnavailable": "This Lithe version does not provide API-24 native terminals. Update Lithe and open the plugin in a local workspace.",
+  "docker.terminalStopped": "Start or resume this container before opening a terminal.",
+  "docker.terminalInvalid": "Could not prepare the native terminal. Refresh the container and try again.",
+  "plugin.host.busy": "A terminal operation is in progress. Finish or cancel it, then retry.",
+  "plugin.host.limitExceeded": "The plugin's eight terminal slots are in use. Close and forget an unused container terminal, then retry.",
+  "plugin.host.unavailable": "This host does not provide the required native terminal service.",
+  "plugin.host.authorityUnsupported": "Container terminals currently require a local macOS workspace.",
+  "plugin.host.permissionDenied": "Allow the plugin's native terminal permission, then retry."
 }

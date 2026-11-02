@@ -7,6 +7,7 @@ import { TextViewport } from './TextViewport.tsx';
 import { Icon } from './icons.tsx';
 import { ContainerFiles } from './ContainerFiles.tsx';
 import { ResourceSummary } from './ResourceSummary.tsx';
+import { ContainerTerminal } from './ContainerTerminal.tsx';
 
 export function TextView({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -169,19 +170,21 @@ function RemoteText({ fn, params, label }: { fn: string; params: object; label: 
     : text === null ? <div class="empty">{t('loading')}</div> : <TextView value={text} label={label}/>;
 }
 
-export function ResourceDetails({ item, section, revision, sampleInterval, onSampleInterval }: { item: Resource; section: Section; revision: number; sampleInterval: number; onSampleInterval(value: number): void }) {
+export function ResourceDetails({ item, section, revision, sampleInterval, onSampleInterval, active }: { item: Resource; section: Section; revision: number; sampleInterval: number; onSampleInterval(value: number): void; active: boolean }) {
   const [tab, setTab] = useState('details');
   const container = 'state' in item ? item : null;
   const kind = section === 'images' ? 'image' : section === 'volumes' ? 'volume' : section === 'networks' ? 'network' : 'container';
   const id = 'id' in item ? item.id : item.name;
   const tabs = container ? ['details', 'logs', 'stats', 'files', 'processes', 'inspect'] as const : ['details', 'inspect'] as const;
-  return <div class="detail-body"><div class="tabs" role="tablist">{tabs.map(value => <button role="tab" aria-selected={tab === value}
+  return <div class="detail-body"><div class="detail-toolbar"><div class="tabs" role="tablist">{tabs.map(value => <button role="tab" aria-selected={tab === value}
     onClick={() => setTab(value)}>{t(value)}</button>)}</div>
-    {tab === 'details' && <ResourceSummary item={item} section={section} revision={revision}/>}
+      {container && <ContainerTerminal id={id} name={container.name} running={container.state === 'running'}/>}
+    </div>
+    {active && <>{tab === 'details' && <ResourceSummary item={item} section={section} revision={revision}/>}
     {tab === 'logs' && container && <LogView key={id} id={id}/>}
     {tab === 'stats' && container && <StatsView key={id} id={id} state={container.state} interval={sampleInterval} onInterval={onSampleInterval}/>}
     {tab === 'files' && container && <ContainerFiles key={id} id={id}/>}
     {tab === 'processes' && <RemoteText key={`${id}-${revision}`} fn="containers.top" params={{ id }} label={t('processes')}/>}
-    {tab === 'inspect' && <RemoteText key={`${id}-${revision}`} fn="objects.inspect" params={{ id, kind }} label={t('inspect')}/>}
+    {tab === 'inspect' && <RemoteText key={`${id}-${revision}`} fn="objects.inspect" params={{ id, kind }} label={t('inspect')}/>}</>}
   </div>;
 }

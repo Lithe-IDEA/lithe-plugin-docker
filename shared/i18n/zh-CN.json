@@ -200,5 +200,18 @@
   "replace": "替换",
   "sampleInterval": "采样间隔",
   "seconds": "{count} 秒",
-  "statsStopped": "启动此容器后查看实时统计。"
+  "statsStopped": "启动此容器后查看实时统计。",
+  "openTerminal": "打开终端",
+  "containerShell": "Shell",
+  "containerTerminalTitle": "Docker · {name}",
+  "terminalHelp": "在当前引擎上打开 Lithe 原生终端。已有会话会直接显示，关闭后的会话会重新启动并恢复最多 16 KiB 显示历史。终端 PATH 中需要有 Docker CLI，容器内需要有所选 Shell。",
+  "disposeTerminal": "关闭并释放此容器 Shell 的终端和历史",
+  "docker.terminalUnavailable": "当前 Lithe 版本不提供 API-24 原生终端。请更新 Lithe，并在本机工作区中打开插件。",
+  "docker.terminalStopped": "请先启动或恢复此容器，再打开终端。",
+  "docker.terminalInvalid": "无法准备原生终端。请刷新容器后重试。",
+  "plugin.host.busy": "终端操作正在进行。请先完成或取消，再重试。",
+  "plugin.host.limitExceeded": "插件的八个终端名额已用完。请关闭并释放不再使用的容器终端，再重试。",
+  "plugin.host.unavailable": "当前宿主不提供所需的原生终端服务。",
+  "plugin.host.authorityUnsupported": "容器终端目前需要本机 macOS 工作区。",
+  "plugin.host.permissionDenied": "请授予插件原生终端权限后重试。"
 }

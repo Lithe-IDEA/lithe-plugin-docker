@@ -1,6 +1,6 @@
 import { Box, Boxes, Layers, HardDrive, Network, ChartPie, Settings2, Search,
   RefreshCw, Plus, Download, Play, Square, RotateCw, Pause, Trash2, ChevronRight,
-  ChevronDown, CircleX, X, PackageOpen, Cable, WrapText, ArrowUp, Upload, Folder, File } from 'lucide-preact';
+  ChevronDown, CircleX, X, PackageOpen, Cable, WrapText, ArrowUp, Upload, Folder, File, Terminal } from 'lucide-preact';
 
 const icons = {
   containers: Box, images: Layers, volumes: HardDrive, networks: Network,
@@ -9,6 +9,7 @@ const icons = {
   pause: Pause, unpause: Play, kill: CircleX, remove: Trash2,
   collapsed: ChevronRight, expanded: ChevronDown, close: X, project: Boxes,
   empty: PackageOpen, endpoint: Cable, wrap: WrapText, up: ArrowUp, upload: Upload, folder: Folder, file: File,
+  terminal: Terminal,
 };
 export type IconName = keyof typeof icons;
 

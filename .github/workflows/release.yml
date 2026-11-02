@@ -20,7 +20,9 @@ concurrency:
 jobs:
   release:
     name: Release ${{ github.ref_name }}
-    runs-on: macos-26
+    # Match CI and Colima's macOS integration lane: hosted ARM Macs cannot
+    # start the nested VZ VM required by the real Docker check.
+    runs-on: macos-15-intel
     timeout-minutes: 60
     permissions:
       contents: write
@@ -45,10 +47,17 @@ jobs:
       - name: Build the package
         run: node scripts/package.mjs
       - name: Start a local Docker engine
+        id: docker-engine
+        timeout-minutes: 10
         run: |
           brew install colima docker
           colima start --cpu 2 --memory 2 --disk 10
           docker pull alpine:3.21
+      - name: Diagnose Docker engine startup
+        if: failure() && steps.docker-engine.outcome == 'failure'
+        timeout-minutes: 1
+        run: |
+          find "$HOME/.colima" -type f \( -name 'ha.stderr.log' -o -name 'serial*.log' -o -name 'qemu.stderr.log' \) -print -exec tail -n 150 {} \;
       - name: Run the backend through Rust Core and Docker
         run: node scripts/e2e.mjs
       - name: Stop the test engine

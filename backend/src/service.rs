@@ -34,6 +34,7 @@ pub struct Service {
     terminals: Mutex<HashMap<(PathBuf, String), bool>>,
     logos: crate::logos::Logos,
     files: crate::files::Files,
+    native_terminals: crate::terminal::Terminals,
 }
 
 impl Service {
@@ -46,6 +47,7 @@ impl Service {
         Arc::new(Self {
             logos: crate::logos::Logos::new(state.clone()),
             files: crate::files::Files::new(state.clone()),
+            native_terminals: crate::terminal::Terminals::default(),
             state,
             environment,
             choice: Mutex::new(choice),
@@ -61,6 +63,8 @@ impl Service {
         });
         let functions: &[(&str, Handler)] = &[
             ("browser.open", Self::open_browser),
+            ("containers.terminal", Self::open_terminal),
+            ("containers.terminalDispose", Self::dispose_terminal),
             ("files.list", Self::files_list),
             ("files.uploadBegin", Self::upload_begin),
             ("files.uploadLocal", Self::upload_local),
@@ -106,6 +110,15 @@ impl Service {
 
     fn image_logo(&self, params: Value, context: &Context) -> Result<Value, FunctionError> {
         self.logos.get(text(&params, "image")?, context)
+    }
+
+    fn open_terminal(&self, params: Value, context: &Context) -> Result<Value, FunctionError> {
+        self.native_terminals.open(&self.docker()?, &params, context)
+    }
+
+    fn dispose_terminal(&self, params: Value, context: &Context) -> Result<Value, FunctionError> {
+        self.native_terminals
+            .dispose(&self.endpoint()?.socket, &params, context)
     }
 
     fn open_browser(&self, params: Value, context: &Context) -> Result<Value, FunctionError> {
@@ -262,7 +275,9 @@ impl Service {
             flag(&params, "force"),
             flag(&params, "volumes")
         );
-        self.docker()?.call(context, "DELETE", &target, None)?;
+        let docker = self.docker()?;
+        self.native_terminals.dispose_container(&docker.socket, id, context)?;
+        docker.call(context, "DELETE", &target, None)?;
         lock(&self.terminals).retain(|(_, container), _| container != id);
         Ok(Value::Null)
     }
@@ -393,6 +408,7 @@ impl Service {
             let percentage = (index * 100 / containers.len().max(1)) as u8;
             context.progress(&format!("{} {name}", capital(action)), Some(percentage));
             if action == "remove" {
+                self.native_terminals.dispose_container(&docker.socket, id, context)?;
                 docker.call(context, "DELETE", &format!("/containers/{}?force=1", encode(id)), None)?;
                 lock(&self.terminals).retain(|(_, container), _| container != id);
             } else {
