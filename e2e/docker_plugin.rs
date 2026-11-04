@@ -209,6 +209,7 @@ impl Host {
             json!({
                 "providerId": format!("pluginBackend:{plugin_id}"),
                 "pluginId": plugin_id,
+                "role": "backend",
                 "executablePath": executable,
                 "arguments": plan["arguments"],
                 "rootUri": format!("file://{}/", state.display()),
@@ -343,6 +344,57 @@ impl Host {
                 .iter()
                 .find(|event| event["operationId"] == operation && event["type"] == "requestCompleted")
             {
+                if !matches!(
+                    function,
+                    "containers.list"
+                        | "containers.logs"
+                        | "containers.stats"
+                        | "containers.top"
+                        | "contexts.list"
+                        | "engine.info"
+                        | "events.next"
+                        | "images.list"
+                        | "images.logo"
+                        | "networks.list"
+                        | "objects.inspect"
+                        | "system.df"
+                        | "volumes.list"
+                        | "files.list"
+                        | "files.uploadBegin"
+                        | "files.uploadChunk"
+                ) || completed.get("error").is_some()
+                {
+                    let records = core("diagnostics.drainCoreEvents", json!({}));
+                    let event = if completed.get("error").is_some() {
+                        "plugins.operation.failed"
+                    } else {
+                        "plugins.operation.finished"
+                    };
+                    let terminal: Vec<_> = records["events"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .filter(|record| record["event"] == event && record["op"] == operation)
+                        .collect();
+                    assert_eq!(
+                        terminal.len(),
+                        1,
+                        "typed terminal for {operation}: {records}"
+                    );
+                    assert_eq!(
+                        terminal[0]["channel"],
+                        format!("plugins/{}/host", self.plugin_id)
+                    );
+                    assert_eq!(
+                        terminal[0]["level"],
+                        if completed.get("error").is_some() {
+                            "ERROR"
+                        } else {
+                            "INFO"
+                        }
+                    );
+                    assert_eq!(terminal[0]["fields"]["operation"], function);
+                }
                 return completed.clone();
             }
             let remaining = deadline.saturating_duration_since(Instant::now());

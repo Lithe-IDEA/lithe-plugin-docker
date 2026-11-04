@@ -26,6 +26,8 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: ui/package-lock.json
+      - name: Verify SDK source provenance
+        run: node scripts/verify-sdk-source.mjs
       - name: Install page dependencies
         working-directory: ui
         run: npm ci
@@ -101,7 +103,7 @@ jobs:
         run: |
           find "$HOME/.colima" -type f \( -name 'ha.stderr.log' -o -name 'serial*.log' -o -name 'qemu.stderr.log' \) -print -exec tail -n 150 {} \;
       - name: Run the backend through Rust Core and Docker
-        run: node scripts/e2e.mjs
+        run: node scripts/e2e.mjs --source https://github.com/1lck/Lithe-IDEA.git --ref preview
       - name: Stop the test engine
         if: always()
         run: colima stop || true

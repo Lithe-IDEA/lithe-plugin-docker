@@ -101,10 +101,33 @@ Elastic 自有仓库、Open WebUI、MinIO 和 pgvector 使用确切公开仓库�
 网页关闭只取消在途操作，已交付的终端继续由用户使用。未增加磁盘缓存或安装目录写入。
 浏览器预览不具备 Lithe 原生终端服务，点击时明确提示不可用。
 
+## 宿主日志接入
+
+后端通过官方 Rust SDK 的结构化 `lithe/log` 通知接入宿主，协商
+`experimental.litheLogging` v1，不创建文件写入器、后台定时器或 stderr 回退。
+macOS 宿主通过共享事件目录将事实写入本次会话的
+`plugins/<plugin-id>/host.log`；级别、脱敏、轮转和保留统一由宿主决定。
+stdout 只承载协议帧，日志不写插件包或 app bundle，不影响签名和增量更新。
+
+SDK 拥有每个函数唯一的成功或失败终态，携带注册函数 ID、单调耗时、安全分类
+及原始 operation ID，不打印内部错误、panic、Docker 正文或命令输出。
+列表、统计、日志流、事件轮询、图标和分块上传的成功诊断被显式抑制，失败仍记录。
+`engine.info` 返回不可用状态时通过 `diagnostics().degraded` 报告固定分类；
+一个原子健康状态抑制相同故障的重复探测，恢复只报告一次 `recovered`。
+容器创建通过拉取缺失镜像恢复、Compose 删除保留仍被占用网络时，分别报告恢复
+和带数量的降级。诊断不含容器名、镜像名、端点、环境、文件内容或容器输出。
+协议通道建立前的启动失败以退出码交给宿主进程生命周期，不另行打印。
+
+`vendor/lithe-plugin-sdk/` 固定同批官方 SDK 源码快照，Cargo 以相对路径引用；
+其 `source-provenance.json` 保存真实来源基线和每个文件的 SHA-256，不伪造已发布
+版本或 Git 提交。插件不强制要求 `${logDir}`，也不维护旧日志系统的兼容写入路径；
+结构化通知需要支持新协议的宿主处理。
+
 ## 开发与验证
 
-需要 Node.js 24+、Rust 1.87+ 和 macOS。官方 Rust SDK 锁定在
-`sdk-rust-v0.1.0`，具体提交与依赖版本由 `backend/Cargo.lock` 固定。
+需要 Node.js 24+、Rust 1.87+ 和 macOS。官方 Rust SDK 使用
+`vendor/lithe-plugin-sdk/` 的源码快照，来源和文件哈希由 `source-provenance.json`
+记录，其余依赖版本由 `backend/Cargo.lock` 固定。
 
 ```sh
 npm ci --prefix ui
@@ -132,12 +155,12 @@ node scripts/package.mjs
 预览关闭会清理暂存文件，下载成功后立即清理对应暂存。Lithe 内继续使用宿主原生文件对话框。
 统计图随窗口调整但有高度上限，大窗口下方保留留白；采样间隔和布局仍由页面状态保存。
 
-真实 Core + Docker 验证使用独立的稀疏检出，版本固定在 `e2e/lithe-core.json`，
+真实 Core + Docker 验证使用独立的稀疏检出，显式选择支持新日志 API 的来源与提交，
 不会写入开发者的 Lithe 工作区。先准备好测试镜像以免镜像下载耗尽操作截止时间：
 
 ```sh
 docker pull alpine:3.21
-node scripts/e2e.mjs
+node scripts/e2e.mjs --source https://github.com/1lck/Lithe-IDEA.git --ref preview
 ```
 
 CI 与发布流程的打包和真实 Docker 集成车道使用 `macos-15-intel`，与 Colima 上游的 macOS
@@ -157,3 +180,8 @@ Core 测试只验证请求交给宿主，不伪造或宣称浏览器或原生终
 Docker 名称和标识属于 Docker, Inc.，本项目不是 Docker 官方产品。
 
 License: Apache-2.0.
+
+新的日志端到端验证要求 Core 已包含 `litheLogging` v1；`scripts/e2e.mjs` 必须显式传入
+`--source` 和 `--ref`，不再默认运行旧的 `e2e/lithe-core.json` 基线。CI 明确选择主仓
+`preview`，需要先合并宿主日志 API；跨仓发布时再把验证引用固定到合并后的精确提交。
+宿主改动未合并时这项检查会真实失败，不跳过，也不把旧协议运行当作新 API 验收。

@@ -14,6 +14,7 @@ use serde_json::{json, Map};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -35,6 +36,8 @@ pub struct Service {
     logos: crate::logos::Logos,
     files: crate::files::Files,
     native_terminals: crate::terminal::Terminals,
+    /// One fixed-size health state; repeated UI probes do not flood diagnostics.
+    engine_health: AtomicU8,
 }
 
 impl Service {
@@ -52,6 +55,7 @@ impl Service {
             environment,
             choice: Mutex::new(choice),
             terminals: Mutex::default(),
+            engine_health: AtomicU8::new(0),
         })
     }
 
@@ -101,6 +105,29 @@ impl Service {
             backend
                 .function(id, move |params, context| handler(&service, params, context))
                 .expect("valid function ID");
+            if matches!(
+                id,
+                "containers.list"
+                    | "containers.logs"
+                    | "containers.stats"
+                    | "containers.top"
+                    | "contexts.list"
+                    | "engine.info"
+                    | "events.next"
+                    | "images.list"
+                    | "images.logo"
+                    | "networks.list"
+                    | "objects.inspect"
+                    | "system.df"
+                    | "volumes.list"
+                    | "files.list"
+                    | "files.uploadBegin"
+                    | "files.uploadChunk"
+            ) {
+                backend
+                    .suppress_success_diagnostics(id)
+                    .expect("registered function ID");
+            }
         }
     }
 
@@ -180,7 +207,10 @@ impl Service {
     fn info(&self, _: Value, context: &Context) -> Result<Value, FunctionError> {
         let endpoint = match self.endpoint() {
             Ok(endpoint) => endpoint,
-            Err(error) => return Ok(unreachable(None, &error)),
+            Err(error) => {
+                self.report_unreachable(context, &error);
+                return Ok(unreachable(None, &error));
+            }
         };
         let docker = Docker::new(endpoint.socket.clone());
         let version = match docker.get(context, "/version") {
@@ -191,11 +221,20 @@ impl Service {
                     "docker.unreachable" | "docker.permissionDenied" | "docker.connectionLost"
                 ) =>
             {
+                self.report_unreachable(context, &error);
                 return Ok(unreachable(Some(&endpoint), &error));
             }
             Err(error) => return Err(error),
         };
         let info = docker.get(context, "/info")?;
+        // Normal successful probes are silent. Only report recovery from a
+        // previously observed degraded connection, without its endpoint.
+        if self.engine_health.swap(1, Ordering::Relaxed) > 1 {
+            context
+                .diagnostics()
+                .recovered("engine.info", "connection_restored", None)
+                .expect("registered operation and static diagnostic code");
+        }
         Ok(json!({
             "reachable": true,
             "endpoint": endpoint.to_json(),
@@ -207,6 +246,24 @@ impl Service {
                 "Driver", "DockerRootDir", "Warnings",
             ]),
         }))
+    }
+
+    fn report_unreachable(&self, context: &Context, error: &PluginError) {
+        let (state, code) = match error.code() {
+            "docker.contextNotFound" => (2, "context_not_found"),
+            "docker.unsupportedHost" => (3, "unsupported_host"),
+            "docker.permissionDenied" => (4, "permission_denied"),
+            "docker.connectionLost" => (5, "connection_lost"),
+            _ => (6, "unreachable"),
+        };
+        // engine.info returns this as a degraded successful result, so the
+        // SDK's function-error boundary has no failure to record.
+        if self.engine_health.swap(state, Ordering::Relaxed) != state {
+            context
+                .diagnostics()
+                .degraded("engine.info", code, None)
+                .expect("registered operation and controlled diagnostic code");
+        }
     }
 
     fn list_contexts(&self, _: Value, _: &Context) -> Result<Value, FunctionError> {
@@ -378,9 +435,11 @@ impl Service {
             target.push_str(&format!("?name={}", encode(name)));
         }
         let docker = self.docker()?;
+        let mut pulled_missing_image = false;
         let created = match docker.call(context, "POST", &target, Some(&body)) {
             Err(FunctionError::Plugin(error)) if error.code() == "docker.notFound" => {
                 pull(&docker, context, image)?;
+                pulled_missing_image = true;
                 docker.call(context, "POST", &target, Some(&body))?
             }
             other => other?,
@@ -390,12 +449,19 @@ impl Service {
             context.progress("Starting the container", None);
             docker.call(context, "POST", &format!("/containers/{}/start", encode(&id)), None)?;
         }
+        if pulled_missing_image {
+            context
+                .diagnostics()
+                .recovered("containers.create", "missing_image_pulled", None)
+                .expect("registered operation and static diagnostic code");
+        }
         Ok(json!({ "id": id, "warnings": created["Warnings"] }))
     }
 
     /// Starts, stops, restarts, or removes every container of a Compose
     /// project, found by its label; removing also removes its networks.
     fn compose_action(&self, params: Value, context: &Context) -> Result<Value, FunctionError> {
+        let mut retained_networks = 0_u64;
         let project = text(&params, "project")?;
         let action = one_of(&params, "action", COMPOSE_ACTIONS)?;
         let docker = self.docker()?;
@@ -421,12 +487,20 @@ impl Service {
                 let id = network["Id"].as_str().unwrap_or_default();
                 // A network another container still uses stays.
                 match docker.call(context, "DELETE", &format!("/networks/{}", encode(id)), None) {
-                    Err(FunctionError::Plugin(error)) if error.code() == "docker.conflict" => {}
+                    Err(FunctionError::Plugin(error)) if error.code() == "docker.conflict" => {
+                        retained_networks += 1;
+                    }
                     other => {
                         other?;
                     }
                 }
             }
+        }
+        if retained_networks > 0 {
+            context
+                .diagnostics()
+                .degraded("compose.action", "networks_in_use", Some(retained_networks))
+                .expect("registered operation and bounded diagnostic count");
         }
         Ok(json!({ "containers": containers.len() }))
     }
