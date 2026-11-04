@@ -17,14 +17,15 @@ use lithe_plugin_sdk::Backend;
 use std::path::PathBuf;
 
 fn main() {
+    let mut backend = Backend::new("lithe-docker").version(env!("CARGO_PKG_VERSION"));
     let state = match state_directory() {
         Ok(state) => state,
-        Err(message) => {
-            eprintln!("{message}");
+        Err(_) => {
+            // Before listen there is no protocol output; the host owns the
+            // startup exit-code event rather than a second stderr writer.
             std::process::exit(2);
         }
     };
-    let mut backend = Backend::new("lithe-docker").version(env!("CARGO_PKG_VERSION"));
     service::Service::new(state, endpoint::Environment::current()).install(&mut backend);
     std::process::exit(backend.listen());
 }
