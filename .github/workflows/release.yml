@@ -3,6 +3,8 @@
 # community package without a Lithe signature: Lithe Store lists the
 # release's archive by its SHA-256, and its release tracker picks up later
 # versions on its own.
+# Tags listed in PRERELEASE_TAGS are published as pre-releases, which the
+# tracker skips.
 name: Release
 
 on:
@@ -16,6 +18,13 @@ permissions:
 concurrency:
   group: release
   cancel-in-progress: false
+
+env:
+  # v0.1.2 needs a host offering litheLogging 1, which stable Lithe 0.6.7
+  # lacks. Space-separated tags.
+  PRERELEASE_TAGS: v0.1.2
+  # Exact preview commit containing the litheLogging 1 host API (1lck/Lithe-IDEA#1699).
+  CORE_REF: 4dd3165912a7ef4ccfd7240890a33b63751c9b3e
 
 jobs:
   release:
@@ -59,7 +68,7 @@ jobs:
         run: |
           find "$HOME/.colima" -type f \( -name 'ha.stderr.log' -o -name 'serial*.log' -o -name 'qemu.stderr.log' \) -print -exec tail -n 150 {} \;
       - name: Run the backend through Rust Core and Docker
-        run: node scripts/e2e.mjs --source https://github.com/1lck/Lithe-IDEA.git --ref preview
+        run: node scripts/e2e.mjs --source https://github.com/1lck/Lithe-IDEA.git --ref "$CORE_REF"
       - name: Stop the test engine
         if: always()
         run: colima stop || true
@@ -77,8 +86,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           archive=$(ls dist/*-darwin.zip)
+          release_flags=()
+          for tag in $PRERELEASE_TAGS; do
+            if [[ "$tag" == "$GITHUB_REF_NAME" ]]; then release_flags+=(--prerelease); fi
+          done
           # Published assets are never replaced: Lithe Store pins their SHA-256.
           gh release create "$GITHUB_REF_NAME" "$archive" "$archive.sha256" \
             --verify-tag \
             --title "Docker $GITHUB_REF_NAME" \
-            --notes-file "docs/releases/$GITHUB_REF_NAME.md"
+            --notes-file "docs/releases/$GITHUB_REF_NAME.md" \
+            "${release_flags[@]}"

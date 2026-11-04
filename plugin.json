@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "id": "io.github.lithe-idea.docker",
   "displayName": "Docker",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "pluginAPIVersion": 3,
   "requires": {
     "backend": 2,
