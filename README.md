@@ -9,10 +9,14 @@
 [下载最新版 macOS 安装包](https://github.com/Lithe-IDEA/lithe-plugin-docker/releases/latest)
 （Apple silicon / Intel 通用；发布页附 SHA-256 校验文件）。
 
+0.1.2 是预发布版本，需要提供结构化插件诊断（`litheLogging` 1）的 Lithe preview 开发版；
+稳定版 Lithe 0.6.7 没有该能力，后端无法启动，请继续使用 0.1.1。0.1.2 暂不收录 Lithe Store，
+请在 [Releases](https://github.com/Lithe-IDEA/lithe-plugin-docker/releases) 下载。
+
 在 Lithe 的「设置 → 插件 → 从磁盘安装」中选择构建产物：
 
 ```text
-dist/docker-0.1.1-darwin.zip
+dist/docker-0.1.2-darwin.zip
 ```
 
 也可以选择解压后的 `dist/io.github.lithe-idea.docker/` 目录。
@@ -183,5 +187,5 @@ License: Apache-2.0.
 
 新的日志端到端验证要求 Core 已包含 `litheLogging` v1；`scripts/e2e.mjs` 必须显式传入
 `--source` 和 `--ref`，不再默认运行旧的 `e2e/lithe-core.json` 基线。CI 明确选择主仓
-`preview`，需要先合并宿主日志 API；跨仓发布时再把验证引用固定到合并后的精确提交。
+`preview`；Release 工作流把验证引用固定到包含宿主日志 API 的精确 preview 提交（`CORE_REF`）。
 宿主改动未合并时这项检查会真实失败，不跳过，也不把旧协议运行当作新 API 验收。
